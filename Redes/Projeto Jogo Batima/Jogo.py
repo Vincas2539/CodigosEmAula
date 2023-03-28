@@ -6,13 +6,11 @@ from moviepy.editor import VideoFileClip
 width = 1280
 height = 720
 win = pygame.display.set_mode((width, height))
-pygame.display.set_caption("Client")
+pygame.display.set_caption("O Jogo")
 
 # background
 background = pygame.image.load("hahaha.png")
 background = pygame.transform.scale(background, (width, height))
-
-clientNumber = 0
 
 
 def cutscene():
@@ -44,6 +42,7 @@ class Player(pygame.sprite.Sprite):
         self.vel = 5
 
         self.health = 10
+        self.points = 0
 
         self.last_shot = pygame.time.get_ticks()
         self.shoot_delay = 250
@@ -131,8 +130,11 @@ class Enemy(pygame.sprite.Sprite):
 def redrawWindow(win, player, player2, enemies):
     win.fill((255, 255, 255))
     draw_background()
-    player2.draw(win)
-    player.draw(win)
+    if player2.health > 0:
+        player2.draw(win)
+    if player.health > 0:
+        player.draw(win)
+
     for enemy in enemies:
         enemy.draw()
 
@@ -148,16 +150,38 @@ def redrawWindow(win, player, player2, enemies):
             bullet.kill()
             bulletsp2.remove(bullet)
 
+    show_stats(win, pygame.font.Font(None, 30), player, player2)
+
     pygame.display.update()
 
 
-def check_collisions(enemies, bulletss):
+def check_bullet_collisions(enemies, bulletss, player):
     for enemy in enemies:
         for bullet in bulletss:
             if enemy.rect.colliderect(bullet.rect):
+                player.points += 10
                 enemy.die()
                 bulletss.remove(bullet)
 
+def check_player_collisions(enemies, player):
+    for enemy in enemies:
+        if enemy.rect.colliderect(player.rect):
+            player.health -= 1
+            enemy.die()
+
+
+def show_stats(screen, font, player1, player2):
+    # Cria uma superfície de texto com as estatísticas
+    stats_surface1 = font.render(f'VOCÊ - Vida: {player1.health}    Pontos: {player1.points}', True, (0,255,0))
+    stats_surface2 = font.render(f'P2 - Vida: {player2.health}    Pontos: {player2.points}', True, (0,255,0))
+
+    # Define a posição onde a superfície de texto será exibida na tela
+    stats_pos1 = (10, 10)
+    stats_pos2 = (1000, 10)
+
+    # Exibe a superfície de texto na tela
+    screen.blit(stats_surface1, stats_pos1)
+    screen.blit(stats_surface2, stats_pos2)
 
 # Batima
 p1original_image = pygame.image.load("batima.png")
@@ -205,17 +229,20 @@ def main():
         p2Pos = read_pos(n.send(make_pos((p.x, p.y, p.shotCount))))
         p2.x = p2Pos[0]
         p2.y = p2Pos[1]
-        if p2.shotCount < p2Pos[2]:
-            p2.shotCount = p2Pos[2]
-            p2.shot()
-        p2.update()
+        if p2.health > 0:
+            if p2.shotCount < p2Pos[2]:
+                p2.shotCount = p2Pos[2]
+                p2.shot()
+            p2.update()
+            check_player_collisions(enemies, p2)
+            check_bullet_collisions(enemies, bulletsp2, p2)
 
-        p.move()
+        if p.health > 0:
+            p.move()
+            check_player_collisions(enemies, p)
+            check_bullet_collisions(enemies, bulletsp1, p)
+
         redrawWindow(win, p, p2, enemies)
-        check_collisions(enemies, [p])
-        check_collisions(enemies, [p2])
-        check_collisions(enemies, bulletsp1)
-        check_collisions(enemies, bulletsp2)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
